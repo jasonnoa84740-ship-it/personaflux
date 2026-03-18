@@ -5,6 +5,8 @@ const isProtectedRoute = createRouteMatcher([
   "/create(.*)",
   "/billing(.*)",
   "/chat(.*)",
+  "/settings(.*)",
+  "/api/checkout(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -15,7 +17,7 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpg|jpeg|png|gif|svg|ico|ttf|woff2?|webp)).*)",
     "/(api|trpc)(.*)",
   ],
 };
