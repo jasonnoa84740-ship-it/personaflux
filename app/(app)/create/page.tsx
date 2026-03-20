@@ -95,7 +95,7 @@ export default function CreatePage() {
     const formData = new FormData();
     formData.append("file", imageFile);
 
-    const res = await fetch("/api/uploads/clone-avatar", {
+    const res = await fetch("/api/clone-avatar", {
       method: "POST",
       body: formData,
     });

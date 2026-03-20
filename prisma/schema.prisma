@@ -7,78 +7,404 @@ datasource db {
 }
 
 model User {
-  id               String         @id @default(cuid())
-  clerkUserId      String         @unique
-  email            String?        @unique
-  username         String?
-  imageUrl         String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id                  String    @id @default(cuid())
+  clerkUserId         String    @unique
+  email               String?   @unique
+  username            String?
+  imageUrl            String?
+  firstName           String?
+  lastName            String?
+  bio                 String?   @db.Text
+  websiteUrl          String?
+  instagramUrl        String?
+  twitterUrl          String?
+  youtubeUrl          String?
+  tiktokUrl           String?
+  onboardingCompleted Boolean   @default(false)
+  lastSeenAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  clones           Clone[]
-  conversations    Conversation[]
-  subscription     Subscription?
+  clones        Clone[]
+  conversations Conversation[]
+  subscription  Subscription?
+  usage         UsageCounter?
+  apiKeys       ApiKey[]
+  notifications Notification[]
+  memoryEntries MemoryEntry[]
+
+  @@index([clerkUserId])
+  @@index([email])
 }
 
 model Clone {
-  id               String          @id @default(cuid())
-  userId           String
-  name             String
-  slug             String          @unique
-  category         String?
-  shortDescription String?
-  description      String?         @db.Text
-  avatarUrl        String?
-  voiceEnabled     Boolean         @default(false)
-  visibility       CloneVisibility @default(PRIVATE)
-  status           CloneStatus     @default(DRAFT)
-  tone             String?
-  responseStyle    String?
-  primaryGoal      String?
-  traits           String[]
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id                     String          @id @default(cuid())
+  userId                 String
+  name                   String
+  slug                   String          @unique
+  category               String?
+  shortDescription       String?
+  description            String?         @db.Text
+  longDescription        String?         @db.Text
+  avatarUrl              String?
+  coverImageUrl          String?
+  logoUrl                String?
+  welcomeMessage         String?         @db.Text
+  placeholderPrompt      String?
+  publicHeadline         String?
+  publicSubheadline      String?         @db.Text
+  customDomain           String?
+  websiteUrl             String?
+  voiceEnabled           Boolean         @default(false)
+  videoEnabled           Boolean         @default(false)
+  imageGenerationEnabled Boolean         @default(false)
+  visibility             CloneVisibility @default(PRIVATE)
+  status                 CloneStatus     @default(DRAFT)
+  domain                 CloneDomain     @default(GENERAL)
+  tone                   String?
+  responseStyle          String?
+  primaryGoal            String?
+  language               String          @default("fr")
+  traits                 String[]
+  tags                   String[]
+  strictMode             Boolean         @default(true)
+  featured               Boolean         @default(false)
+  isTemplate             Boolean         @default(false)
+  allowMemory            Boolean         @default(true)
+  allowLeadCapture       Boolean         @default(false)
+  allowFileContext       Boolean         @default(false)
+  leadCaptureEnabled     Boolean         @default(false)
+  temperature            Float           @default(0.6)
+  maxResponseLength      Int             @default(900)
+  minResponseLength      Int             @default(80)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  publishedAt            DateTime?
+  archivedAt             DateTime?
 
-  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  config           CloneConfig?
+  pricing          ClonePricing?
+  analytics        CloneAnalytics?
   conversations    Conversation[]
+  messages         Message[]
+  knowledgeEntries KnowledgeEntry[]
+  promptPresets    PromptPreset[]
+  faqEntries       CloneFaq[]
+  capabilities     CloneCapability[]
+  mediaAssets      CloneMediaAsset[]
+  leadSubmissions  LeadSubmission[]
+  memoryEntries    MemoryEntry[]
+
+  @@index([userId])
+  @@index([slug])
+  @@index([status])
+  @@index([visibility])
+  @@index([domain])
+  @@index([featured])
+  @@index([userId, status])
+  @@index([userId, visibility])
+}
+
+model CloneConfig {
+  id                    String         @id @default(cuid())
+  cloneId               String         @unique
+  systemPrompt          String?        @db.Text
+  systemIdentity        String?        @db.Text
+  responseRules         String?        @db.Text
+  safetyRules           String?        @db.Text
+  forbiddenTopics       String[]
+  preferredTopics       String[]
+  fallbackMessage       String?        @db.Text
+  fallbackWhenUnknown   Boolean        @default(true)
+  useKnowledgeBase      Boolean        @default(true)
+  useConversationMemory Boolean        @default(true)
+  useStyleGuard         Boolean        @default(true)
+  useTopicGuard         Boolean        @default(true)
+  useLeadCapturePrompt  Boolean        @default(false)
+  askFollowupQuestions  Boolean        @default(true)
+  allowOffTopic         Boolean        @default(false)
+  responseFormat        ResponseFormat @default(NATURAL)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  clone Clone @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+}
+
+model ClonePricing {
+  id                String   @id @default(cuid())
+  cloneId           String   @unique
+  isPaid            Boolean  @default(false)
+  monthlyPrice      Int?
+  yearlyPrice       Int?
+  currency          String   @default("EUR")
+  freeMessagesLimit Int      @default(10)
+  paidMessagesLimit Int      @default(1000)
+  showPricingPage   Boolean  @default(false)
+  ctaText           String?
+  ctaUrl            String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  clone Clone @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+}
+
+model CloneAnalytics {
+  id                    String   @id @default(cuid())
+  cloneId               String   @unique
+  totalViews            Int      @default(0)
+  totalConversations    Int      @default(0)
+  totalMessages         Int      @default(0)
+  totalLeads            Int      @default(0)
+  totalConversions      Int      @default(0)
+  totalRevenueCents     Int      @default(0)
+  avgConversationLength Float    @default(0)
+  avgMessagesPerUser    Float    @default(0)
+  bounceRate            Float    @default(0)
+  conversionRate        Float    @default(0)
+  updatedAt             DateTime @updatedAt
+
+  clone Clone @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+}
+
+model CloneCapability {
+  id          String        @id @default(cuid())
+  cloneId     String
+  key         CapabilityKey
+  enabled     Boolean       @default(true)
+  label       String?
+  description String?       @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  clone Clone @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+
+  @@unique([cloneId, key])
+  @@index([cloneId])
+}
+
+model CloneFaq {
+  id          String   @id @default(cuid())
+  cloneId     String
+  question    String
+  answer      String   @db.Text
+  position    Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  clone Clone @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+
+  @@index([cloneId, position])
+}
+
+model PromptPreset {
+  id          String   @id @default(cuid())
+  cloneId     String
+  title       String
+  prompt      String   @db.Text
+  description String?  @db.Text
+  category    String?
+  isSuggested Boolean  @default(true)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  clone Clone @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+
+  @@index([cloneId, isSuggested])
+  @@index([cloneId, position])
+}
+
+model KnowledgeEntry {
+  id          String             @id @default(cuid())
+  cloneId     String
+  title       String
+  content     String             @db.Text
+  summary     String?            @db.Text
+  type        KnowledgeEntryType @default(FACT)
+  topic       String?
+  sourceLabel String?
+  sourceUrl   String?
+  priority    Int                @default(1)
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  clone Clone @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+
+  @@index([cloneId, isActive])
+  @@index([cloneId, type])
+  @@index([cloneId, priority])
+  @@index([topic])
+}
+
+model MemoryEntry {
+  id             String     @id @default(cuid())
+  cloneId        String
+  conversationId String?
+  userId         String?
+  content        String     @db.Text
+  summary        String?
+  type           MemoryType @default(FACT)
+  importance     Int        @default(1)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  clone        Clone         @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([cloneId, type])
+  @@index([conversationId])
+  @@index([userId])
 }
 
 model Conversation {
-  id               String         @id @default(cuid())
-  userId           String?
-  cloneId          String
-  title            String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id            String             @id @default(cuid())
+  userId        String?
+  cloneId       String
+  title         String?
+  summary       String?            @db.Text
+  status        ConversationStatus @default(ACTIVE)
+  source        ConversationSource @default(WEB)
+  language      String             @default("fr")
+  lastMessageAt DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
-  user             User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
-  clone            Clone          @relation(fields: [cloneId], references: [id], onDelete: Cascade)
-  messages         Message[]
+  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  clone           Clone            @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+  messages        Message[]
+  leadSubmissions LeadSubmission[]
+  memoryEntries   MemoryEntry[]
+
+  @@index([userId])
+  @@index([cloneId])
+  @@index([status])
+  @@index([lastMessageAt])
+  @@index([cloneId, updatedAt])
 }
 
 model Message {
-  id               String         @id @default(cuid())
-  conversationId   String
-  role             MessageRole
-  content          String         @db.Text
-  createdAt        DateTime       @default(now())
+  id                    String      @id @default(cuid())
+  conversationId        String
+  cloneId               String
+  role                  MessageRole
+  content               String      @db.Text
+  model                 String?
+  tokenCount            Int?
+  latencyMs             Int?
+  rating                Int?
+  feedback              String?     @db.Text
+  containsLeadIntent    Boolean     @default(false)
+  containsPaymentIntent Boolean     @default(false)
+  createdAt             DateTime    @default(now())
 
-  conversation     Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  clone        Clone        @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([cloneId, createdAt])
+  @@index([role])
+}
+
+model LeadSubmission {
+  id             String     @id @default(cuid())
+  cloneId        String
+  conversationId String?
+  name           String?
+  email          String?
+  phone          String?
+  company        String?
+  notes          String?    @db.Text
+  status         LeadStatus @default(NEW)
+  source         String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  clone        Clone         @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@index([cloneId, status])
+  @@index([conversationId])
+  @@index([email])
+}
+
+model CloneMediaAsset {
+  id          String         @id @default(cuid())
+  cloneId     String
+  type        MediaAssetType
+  url         String
+  storagePath String?
+  altText     String?
+  prompt      String?        @db.Text
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  clone Clone @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+
+  @@index([cloneId, type])
 }
 
 model Subscription {
-  id               String             @id @default(cuid())
-  userId           String             @unique
-  stripeCustomerId String?            @unique
-  stripeSubId      String?            @unique
-  stripePriceId    String?
-  plan             PlanType           @default(FREE)
-  status           SubscriptionStatus @default(INACTIVE)
-  currentPeriodEnd DateTime?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  id                String             @id @default(cuid())
+  userId            String             @unique
+  stripeCustomerId  String?            @unique
+  stripeSubId       String?            @unique
+  stripePriceId     String?
+  plan              PlanType           @default(FREE)
+  status            SubscriptionStatus @default(INACTIVE)
+  currentPeriodEnd  DateTime?
+  cancelAtPeriodEnd Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
-  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UsageCounter {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  monthKey             String
+  messagesCount        Int      @default(0)
+  clonesCreatedCount   Int      @default(0)
+  imagesGeneratedCount Int      @default(0)
+  videosGeneratedCount Int      @default(0)
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([monthKey])
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  label      String
+  keyHash    String    @unique
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String?          @db.Text
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
 }
 
 enum PlanType {
@@ -108,8 +434,93 @@ enum CloneStatus {
   ARCHIVED
 }
 
+enum CloneDomain {
+  GENERAL
+  BRANDING
+  BUSINESS
+  COACHING
+  CREATOR
+  COOKING
+  EDUCATION
+  SALES
+}
+
+enum ResponseFormat {
+  NATURAL
+  SHORT
+  DETAILED
+  BULLETS
+  STEP_BY_STEP
+}
+
+enum KnowledgeEntryType {
+  FACT
+  FAQ
+  STYLE_RULE
+  OFFER
+  BIO
+  LIMIT
+  EXAMPLE
+}
+
+enum MemoryType {
+  FACT
+  PREFERENCE
+  GOAL
+  CONTEXT
+  LIMIT
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+  CLOSED
+}
+
+enum ConversationSource {
+  WEB
+  EMBED
+  MOBILE
+  API
+}
+
 enum MessageRole {
   USER
   ASSISTANT
   SYSTEM
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  LOST
+}
+
+enum MediaAssetType {
+  AVATAR
+  COVER
+  GALLERY
+  VOICE_SAMPLE
+  VIDEO
+}
+
+enum CapabilityKey {
+  CHAT
+  MEMORY
+  IMAGE_GENERATION
+  VIDEO_GENERATION
+  VOICE
+  LEAD_CAPTURE
+  PAYWALL
+  FILE_CONTEXT
+}
+
+enum NotificationType {
+  BILLING
+  PRODUCT
+  USAGE
+  SYSTEM
+  MARKETING
 }

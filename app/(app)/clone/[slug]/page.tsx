@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { Mic, Send } from "lucide-react";
 
 type Message = {
   role: "user" | "assistant";
@@ -65,7 +66,7 @@ export default function CloneChatPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Chat failed");
+        throw new Error(data?.error || "Chat failed");
       }
 
       const cleanedReply = (data.reply || "Pas de réponse générée.")
@@ -91,6 +92,10 @@ export default function CloneChatPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleVoiceClick() {
+    alert("Le vocal n’est pas encore branché. On peut l’ajouter juste après avec le micro navigateur.");
   }
 
   return (
@@ -136,27 +141,38 @@ export default function CloneChatPage() {
             )}
           </div>
 
-          <div className="flex gap-3">
+          <form
+            className="flex gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+          >
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleSend();
-                }
-              }}
               placeholder={`Écris à ${name}...`}
               className="flex-1 rounded-2xl border border-white/10 bg-black px-4 py-4 text-white outline-none placeholder:text-gray-500"
             />
+
             <button
-              onClick={handleSend}
+              type="button"
+              onClick={handleVoiceClick}
+              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-white transition hover:bg-white/10"
+              aria-label="Vocal"
+            >
+              <Mic className="h-5 w-5" />
+            </button>
+
+            <button
+              type="submit"
               disabled={loading}
               className="rounded-2xl bg-white px-6 py-4 font-semibold text-black transition hover:opacity-85 disabled:opacity-50"
             >
-              {loading ? "..." : "Send"}
+              {loading ? "..." : <Send className="h-5 w-5" />}
             </button>
-          </div>
+          </form>
         </div>
       </div>
     </main>
