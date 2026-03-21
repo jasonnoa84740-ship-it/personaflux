@@ -9,12 +9,8 @@ if (!stripeSecretKey) {
   throw new Error("STRIPE_SECRET_KEY est manquante.");
 }
 
-if (!webhookSecret) {
-  throw new Error("STRIPE_WEBHOOK_SECRET est manquante.");
-}
-
 const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: "2025-02-24.acacia",
+  apiVersion: "2026-02-25.clover",
 });
 
 function mapPlan(priceId: string | null | undefined) {
@@ -53,6 +49,13 @@ export async function POST(req: Request) {
     );
   }
 
+  if (!webhookSecret) {
+    return NextResponse.json(
+      { error: "STRIPE_WEBHOOK_SECRET est manquante." },
+      { status: 500 }
+    );
+  }
+
   let event: Stripe.Event;
 
   try {
@@ -88,7 +91,14 @@ export async function POST(req: Request) {
 
         if (stripeSubId) {
           const subscription = await stripe.subscriptions.retrieve(stripeSubId);
-          currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+          const subscriptionWithPeriodEnd =
+            subscription as unknown as Stripe.Subscription & {
+              current_period_end: number;
+            };
+
+          currentPeriodEnd = new Date(
+            subscriptionWithPeriodEnd.current_period_end * 1000
+          );
           stripePriceId = subscription.items.data[0]?.price?.id || null;
           subscriptionStatus = mapStatus(subscription.status);
         }
@@ -142,7 +152,9 @@ export async function POST(req: Request) {
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object as Stripe.Subscription & {
+          current_period_end: number;
+        };
 
         const stripeSubId = subscription.id;
         const stripeCustomerId =
@@ -181,12 +193,16 @@ export async function POST(req: Request) {
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
         const stripeSubId =
-          typeof invoice.subscription === "string"
-            ? invoice.subscription
+          typeof (invoice as any).subscription === "string"
+            ? (invoice as any).subscription
             : null;
 
         if (stripeSubId) {
           const subscription = await stripe.subscriptions.retrieve(stripeSubId);
+          const subscriptionWithPeriodEnd =
+            subscription as unknown as Stripe.Subscription & {
+              current_period_end: number;
+            };
           const stripePriceId = subscription.items.data[0]?.price?.id || null;
 
           await db.subscription.updateMany({
@@ -204,7 +220,9 @@ export async function POST(req: Request) {
                 | "PAST_DUE"
                 | "CANCELED"
                 | "TRIALING",
-              currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+              currentPeriodEnd: new Date(
+                subscriptionWithPeriodEnd.current_period_end * 1000
+              ),
             },
           });
         }

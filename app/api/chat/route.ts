@@ -224,7 +224,7 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const message = safeString(body?.message);
-    const history = Array.isArray(body?.history)
+    const history: ChatMessage[] = Array.isArray(body?.history)
       ? body.history.filter(isChatMessage)
       : [];
     const imageDataUrl = safeString(body?.imageDataUrl);
@@ -239,7 +239,7 @@ export async function POST(req: Request) {
     const mode = detectResponseMode(message || "analyse cette image", history);
     const systemPrompt = buildSystemPrompt(mode, !!imageDataUrl);
 
-    const recentHistory = history.slice(-8).map((m) => ({
+    const recentHistory = history.slice(-8).map((m: ChatMessage) => ({
       role: m.role,
       content: m.content,
     }));
@@ -251,7 +251,7 @@ export async function POST(req: Request) {
       {
         type: "input_text",
         text: `${systemPrompt}\n\nHistorique récent:\n${recentHistory
-          .map((m) => `${m.role}: ${m.content}`)
+          .map((m: ChatMessage) => `${m.role}: ${m.content}`)
           .join("\n")}\n\nMessage utilisateur:\n${message || "Analyse cette image."}`,
       },
     ];
