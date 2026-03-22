@@ -28,6 +28,7 @@ type CloneData = {
   name: string;
   category: string;
   description: string;
+  shortDescription: string;
   tone: string;
   visibility: string;
   objective: string;
@@ -438,6 +439,7 @@ export default function CloneChatPage() {
     name: "",
     category: "",
     description: "",
+    shortDescription: "",
     tone: "",
     visibility: "",
     objective: "",
@@ -446,6 +448,7 @@ export default function CloneChatPage() {
     traits: [],
     tags: [],
   });
+  const [debugClone, setDebugClone] = useState<any>(null);
 
   const suggestions = useMemo(
     () => [
@@ -513,45 +516,75 @@ export default function CloneChatPage() {
 
         setLoadingClone(true);
 
-        const res = await fetch(`/api/clones/${cloneId}`, {
-          cache: "no-store",
-        });
+        const res = await fetch(
+          `/api/clones/${cloneId}?t=${Date.now()}`,
+          {
+            cache: "no-store",
+          }
+        );
         const data = await readJsonSafe(res);
+
+        console.log("CLONE API DATA =", data);
+        console.log("CLONE OBJECT =", data.clone);
 
         if (!res.ok) {
           throw new Error(data?.error || "Impossible de charger le clone.");
         }
 
-        const clone = data.clone;
+        const clone = data.clone || {};
+        setDebugClone(clone);
+
+        const longDescription =
+          typeof clone.description === "string" ? clone.description.trim() : "";
+        const shortDesc =
+          typeof clone.shortDescription === "string"
+            ? clone.shortDescription.trim()
+            : "";
 
         const cloneDescription =
-          (typeof clone?.description === "string" && clone.description.trim()) ||
-          (typeof clone?.shortDescription === "string" &&
-            clone.shortDescription.trim()) ||
-          "Aucune description.";
+          longDescription || shortDesc || "Aucune description.";
 
         const cloneAvatar =
-          (typeof clone?.avatarUrl === "string" && clone.avatarUrl.trim()) ||
-          (typeof clone?.imageUrl === "string" && clone.imageUrl.trim()) ||
+          (typeof clone.avatarUrl === "string" && clone.avatarUrl.trim()) ||
+          (typeof clone.imageUrl === "string" && clone.imageUrl.trim()) ||
           null;
 
-        setCloneData({
-          id: clone?.id || "",
-          name: clone?.name || "Clone",
-          category: clone?.category || "Clone",
+        const mappedCloneData: CloneData = {
+          id: typeof clone.id === "string" ? clone.id : "",
+          name: typeof clone.name === "string" ? clone.name : "Clone",
+          category:
+            typeof clone.category === "string" && clone.category.trim()
+              ? clone.category
+              : "Clone",
           description: cloneDescription,
-          tone: clone?.tone || "Premium",
-          visibility: clone?.visibility || "Privé",
-          objective: clone?.primaryGoal || clone?.objective || "Converser",
-          status: clone?.status || "En ligne",
+          shortDescription: shortDesc,
+          tone:
+            typeof clone.tone === "string" && clone.tone.trim()
+              ? clone.tone
+              : "Premium",
+          visibility:
+            typeof clone.visibility === "string" && clone.visibility.trim()
+              ? clone.visibility
+              : "Privé",
+          objective:
+            (typeof clone.primaryGoal === "string" && clone.primaryGoal.trim()) ||
+            (typeof clone.objective === "string" && clone.objective.trim()) ||
+            "Converser",
+          status:
+            typeof clone.status === "string" && clone.status.trim()
+              ? clone.status
+              : "En ligne",
           imageUrl: cloneAvatar,
-          traits: Array.isArray(clone?.traits) ? clone.traits : [],
+          traits: Array.isArray(clone.traits) ? clone.traits : [],
           tags: [
-            clone?.tone || "Premium",
-            clone?.visibility || "Privé",
-            clone?.category || "Clone",
+            (typeof clone.tone === "string" && clone.tone.trim()) || "Premium",
+            (typeof clone.visibility === "string" && clone.visibility.trim()) || "Privé",
+            (typeof clone.category === "string" && clone.category.trim()) || "Clone",
           ],
-        });
+        };
+
+        console.log("MAPPED CLONE DATA =", mappedCloneData);
+        setCloneData(mappedCloneData);
       } catch (error) {
         console.error("LOAD CLONE ERROR:", error);
       } finally {
@@ -794,6 +827,7 @@ export default function CloneChatPage() {
             <h1 className="mt-5 text-2xl font-semibold">
               {cloneData.name || "Chargement..."}
             </h1>
+
             <p className="mt-1 text-sm text-white/50">
               Clone premium · {cloneData.category || "Clone"}
             </p>
@@ -812,6 +846,24 @@ export default function CloneChatPage() {
             <p className="mt-5 text-sm leading-7 text-white/60">
               {cloneData.description || "Chargement du clone..."}
             </p>
+
+            <div className="mt-8 rounded-3xl border border-yellow-500/20 bg-yellow-500/10 p-4">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-yellow-300">
+                Debug cloneData
+              </div>
+              <pre className="whitespace-pre-wrap text-[10px] leading-5 text-yellow-100">
+                {JSON.stringify(cloneData, null, 2)}
+              </pre>
+            </div>
+
+            <div className="mt-4 rounded-3xl border border-blue-500/20 bg-blue-500/10 p-4">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">
+                Debug API clone
+              </div>
+              <pre className="whitespace-pre-wrap text-[10px] leading-5 text-blue-100">
+                {JSON.stringify(debugClone, null, 2)}
+              </pre>
+            </div>
 
             <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-sm font-medium text-white/90">Accès actuel</div>
