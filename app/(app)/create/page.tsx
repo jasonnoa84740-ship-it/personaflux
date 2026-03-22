@@ -50,10 +50,12 @@ export default function CreatePage() {
   const [primaryGoal, setPrimaryGoal] = useState("Monétiser des conversations");
   const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
   const [loadingAction, setLoadingAction] = useState<"draft" | "publish" | null>(null);
+  const [generatingAvatar, setGeneratingAvatar] = useState(false);
   const [error, setError] = useState("");
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [generatedAvatarUrl, setGeneratedAvatarUrl] = useState<string | null>(null);
 
   function toggleTrait(trait: string) {
     setSelectedTraits((prev) =>
@@ -84,12 +86,62 @@ export default function CreatePage() {
 
     setError("");
     setImageFile(file);
+    setGeneratedAvatarUrl(null);
 
     const objectUrl = URL.createObjectURL(file);
     setImagePreview(objectUrl);
   }
 
+  async function generateAIAvatar() {
+    setError("");
+
+    if (!name.trim() && !description.trim()) {
+      setError("Ajoute au moins un nom ou une description pour générer l’avatar.");
+      return;
+    }
+
+    try {
+      setGeneratingAvatar(true);
+
+      const res = await fetch("/api/clones/generate-image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          category,
+          shortDescription: shortDescription.trim(),
+          description: description.trim(),
+          responseStyle,
+          primaryGoal,
+          traits: selectedTraits,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Erreur pendant la génération de l’avatar.");
+      }
+
+      setGeneratedAvatarUrl(data.image);
+      setImageFile(null);
+      setImagePreview(data.image);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Impossible de générer l’avatar."
+      );
+    } finally {
+      setGeneratingAvatar(false);
+    }
+  }
+
   async function uploadAvatarIfNeeded() {
+    if (generatedAvatarUrl) {
+      return generatedAvatarUrl;
+    }
+
     if (!imageFile) return null;
 
     const formData = new FormData();
@@ -321,18 +373,36 @@ export default function CreatePage() {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handleOpenFilePicker}
-                      className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
-                    >
-                      <Upload className="h-4 w-4" />
-                      Importer une image
-                    </button>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={handleOpenFilePicker}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
+                      >
+                        <Upload className="h-4 w-4" />
+                        Importer une image
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={generateAIAvatar}
+                        disabled={generatingAvatar}
+                        className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Wand2 className="h-4 w-4" />
+                        {generatingAvatar ? "Génération..." : "Générer avatar IA"}
+                      </button>
+                    </div>
 
                     {imageFile && (
                       <div className="mt-3 text-xs text-white/50">
                         Fichier sélectionné : {imageFile.name}
+                      </div>
+                    )}
+
+                    {generatedAvatarUrl && (
+                      <div className="mt-3 text-xs text-emerald-300">
+                        Avatar IA généré avec succès.
                       </div>
                     )}
                   </div>
