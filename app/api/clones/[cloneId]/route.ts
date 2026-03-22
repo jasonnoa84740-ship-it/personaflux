@@ -17,6 +17,10 @@ export async function GET(
 
     const clone = await prisma.clone.findUnique({
       where: { id: cloneId },
+      include: {
+        visualAppearance: true,
+        mediaAssets: true,
+      },
     });
 
     if (!clone) {
@@ -26,7 +30,19 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ clone });
+    // 🔥 NORMALISATION IMAGE (ULTRA IMPORTANT)
+    const mainAvatar =
+      clone.avatarUrl ||
+      clone.visualAppearance?.referenceImageUrl ||
+      clone.mediaAssets?.find((m) => m.type === "AVATAR")?.url ||
+      null;
+
+    return NextResponse.json({
+      clone: {
+        ...clone,
+        avatarUrl: mainAvatar,
+      },
+    });
   } catch (error) {
     console.error("GET CLONE ERROR:", error);
 
