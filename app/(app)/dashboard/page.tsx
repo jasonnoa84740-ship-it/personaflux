@@ -10,12 +10,12 @@ import {
   Plus,
   Settings2,
   Sparkles,
-  Trash2,
   Users,
   Wallet,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { getUserSubscription } from "@/lib/subscriptions";
+import DeleteCloneButton from "@/components/dashboard/delete-clone-button";
 
 function formatDate(date: Date | null | undefined) {
   if (!date) return "—";
@@ -334,31 +334,7 @@ export default async function DashboardPage() {
                           Tester
                         </Link>
 
-                        <form action={`/api/clones/${clone.id}`} method="post">
-                          <button
-                            formAction={`/api/clones/${clone.id}`}
-                            formMethod="post"
-                            className="inline-flex items-center gap-2 rounded-full border border-red-500/25 bg-red-500/10 px-4 py-2 text-sm text-red-300 transition hover:bg-red-500/15"
-                            onClick={(e) => {
-                              e.preventDefault();
-
-                              const confirmed = window.confirm(
-                                "Supprimer ce clone ? Cette action est irréversible."
-                              );
-
-                              if (!confirmed) return;
-
-                              fetch(`/api/clones/${clone.id}`, {
-                                method: "DELETE",
-                              }).then(() => {
-                                window.location.reload();
-                              });
-                            }}
-                          >
-                            Supprimer
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </form>
+                        <DeleteCloneButton cloneId={clone.id} />
                       </div>
                     </div>
                   );
