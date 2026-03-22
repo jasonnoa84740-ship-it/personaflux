@@ -90,6 +90,15 @@ function getGeneratedImageFromResponse(data: ApiBody): string | null {
   return null;
 }
 
+function isPublicImageUrl(value: string | null | undefined) {
+  if (!value) return false;
+  return (
+    value.startsWith("https://") ||
+    value.startsWith("http://") ||
+    value.startsWith("/")
+  );
+}
+
 function CreatePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -328,15 +337,25 @@ function CreatePageContent() {
     }
 
     if (generatedAvatarUrl?.startsWith("data:image/")) {
-      return await uploadDataUrlAvatar(generatedAvatarUrl);
+      const uploadedUrl = await uploadDataUrlAvatar(generatedAvatarUrl);
+
+      if (!isPublicImageUrl(uploadedUrl) || uploadedUrl.startsWith("data:image/")) {
+        throw new Error(
+          "L’avatar IA n’a pas été converti en URL publique."
+        );
+      }
+
+      return uploadedUrl;
     }
 
-    if (
-      generatedAvatarUrl &&
-      !generatedAvatarUrl.startsWith("data:image/") &&
-      !generatedAvatarUrl.startsWith("blob:")
-    ) {
-      return generatedAvatarUrl;
+    if (generatedAvatarUrl?.startsWith("blob:")) {
+      throw new Error(
+        "Avatar temporaire invalide. Réimporte l’image avant de sauvegarder."
+      );
+    }
+
+    if (isPublicImageUrl(generatedAvatarUrl)) {
+      return generatedAvatarUrl!;
     }
 
     return null;
@@ -381,6 +400,12 @@ function CreatePageContent() {
       setLoadingAction(status === "DRAFT" ? "draft" : "publish");
 
       const finalAvatarUrl = await resolvePublicAvatarUrl();
+
+      if (finalAvatarUrl?.startsWith("data:image/")) {
+        throw new Error(
+          "Avatar invalide : l’image est encore en base64. L’upload public n’a pas été fait."
+        );
+      }
 
       const endpoint = cloneId ? `/api/clones/${cloneId}` : "/api/clones";
       const method = cloneId ? "PATCH" : "POST";
