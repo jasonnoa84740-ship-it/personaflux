@@ -516,12 +516,9 @@ export default function CloneChatPage() {
 
         setLoadingClone(true);
 
-        const res = await fetch(
-          `/api/clones/${cloneId}?t=${Date.now()}`,
-          {
-            cache: "no-store",
-          }
-        );
+        const res = await fetch(`/api/clones/${cloneId}?t=${Date.now()}`, {
+          cache: "no-store",
+        });
         const data = await readJsonSafe(res);
 
         console.log("CLONE API DATA =", data);
@@ -799,6 +796,10 @@ export default function CloneChatPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
+      <div className="fixed left-4 top-4 z-[9999] rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white">
+        DEBUG CHAT PAGE V2
+      </div>
+
       <LimitModal
         open={!!limitModal}
         type={limitModal || "messages"}
