@@ -82,7 +82,7 @@ model Clone {
   publishedAt            DateTime?
   archivedAt             DateTime?
 
-  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   config           CloneConfig?
   pricing          ClonePricing?
   analytics        CloneAnalytics?
@@ -419,7 +419,7 @@ model CloneVideoJob {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-  clone Clone      @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+  clone Clone       @relation(fields: [cloneId], references: [id], onDelete: Cascade)
   scene CloneScene? @relation(fields: [sceneId], references: [id], onDelete: SetNull)
 
   @@index([cloneId])
