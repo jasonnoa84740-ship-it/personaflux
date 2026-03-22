@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
 import { getSceneTemplate } from "@/lib/scene/templates";
 import { buildScenePrompt } from "@/lib/scene/prompt-builder";
 
@@ -15,9 +15,9 @@ const createSceneSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
+  const { userId: clerkUserId } = await auth();
 
-  if (!userId) {
+  if (!clerkUserId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -35,11 +35,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const clone = await prisma.clone.findFirst({
+    const clone = await db.clone.findFirst({
       where: {
         id: parsed.data.cloneId,
         user: {
-          clerkUserId: userId,
+          clerkUserId,
         },
       },
       include: {
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
       wardrobeOverride: parsed.data.wardrobeOverride,
     });
 
-    const scene = await prisma.cloneScene.create({
+    const scene = await db.cloneScene.create({
       data: {
         cloneId: clone.id,
         templateKey: template.key,
