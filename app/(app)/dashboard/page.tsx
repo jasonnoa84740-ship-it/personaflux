@@ -10,6 +10,7 @@ import {
   Plus,
   Settings2,
   Sparkles,
+  Trash2,
   Users,
   Wallet,
 } from "lucide-react";
@@ -100,6 +101,10 @@ export default async function DashboardPage() {
 
   const clones = await db.clone.findMany({
     where: { userId: appUser.id },
+    include: {
+      visualAppearance: true,
+      mediaAssets: true,
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -252,62 +257,112 @@ export default async function DashboardPage() {
                   Aucun clone pour le moment. Crée ton premier clone pour commencer.
                 </div>
               ) : (
-                clones.map((clone: any) => (
-                  <div
-                    key={clone.id}
-                    className="rounded-[1.5rem] border border-white/10 bg-black/40 p-5"
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-xl font-semibold">{clone.name}</div>
-                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/65">
-                            {clone.status}
-                          </span>
-                        </div>
+                clones.map((clone: any) => {
+                  const avatarUrl =
+                    clone.avatarUrl ||
+                    clone.visualAppearance?.referenceImageUrl ||
+                    clone.mediaAssets?.find((m: any) => m.type === "AVATAR")?.url ||
+                    null;
 
-                        <div className="mt-2 text-sm text-white/45">
-                          {clone.category || "Sans catégorie"}
-                        </div>
-
-                        {clone.shortDescription && (
-                          <div className="mt-2 text-sm text-white/55">
-                            {clone.shortDescription}
+                  return (
+                    <div
+                      key={clone.id}
+                      className="rounded-[1.5rem] border border-white/10 bg-black/40 p-5"
+                    >
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="h-14 w-14 overflow-hidden rounded-2xl bg-white/10">
+                            {avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt={clone.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-white/70">
+                                {clone.name?.slice(0, 1)?.toUpperCase() || "C"}
+                              </div>
+                            )}
                           </div>
-                        )}
+
+                          <div>
+                            <div className="flex items-center gap-3">
+                              <div className="text-xl font-semibold">{clone.name}</div>
+                              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/65">
+                                {clone.status}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 text-sm text-white/45">
+                              {clone.category || "Sans catégorie"}
+                            </div>
+
+                            {clone.shortDescription && (
+                              <div className="mt-2 text-sm text-white/55">
+                                {clone.shortDescription}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-6 text-sm text-white/60">
+                          <div>{clone.visibility}</div>
+                          <div>{clone.responseStyle || "Style non défini"}</div>
+                        </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-6 text-sm text-white/60">
-                        <div>{clone.visibility}</div>
-                        <div>{clone.responseStyle || "Style non défini"}</div>
+                      <div className="mt-5 flex flex-wrap gap-3">
+                        <Link
+                          href={`/chat/${clone.id}`}
+                          className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-black"
+                        >
+                          Ouvrir
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+
+                        <Link
+                          href={`/create?cloneId=${clone.id}`}
+                          className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/75"
+                        >
+                          Modifier
+                        </Link>
+
+                        <Link
+                          href={`/chat/${clone.id}`}
+                          className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/75"
+                        >
+                          Tester
+                        </Link>
+
+                        <form action={`/api/clones/${clone.id}`} method="post">
+                          <button
+                            formAction={`/api/clones/${clone.id}`}
+                            formMethod="post"
+                            className="inline-flex items-center gap-2 rounded-full border border-red-500/25 bg-red-500/10 px-4 py-2 text-sm text-red-300 transition hover:bg-red-500/15"
+                            onClick={(e) => {
+                              e.preventDefault();
+
+                              const confirmed = window.confirm(
+                                "Supprimer ce clone ? Cette action est irréversible."
+                              );
+
+                              if (!confirmed) return;
+
+                              fetch(`/api/clones/${clone.id}`, {
+                                method: "DELETE",
+                              }).then(() => {
+                                window.location.reload();
+                              });
+                            }}
+                          >
+                            Supprimer
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </form>
                       </div>
                     </div>
-
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      <Link
-                        href={`/chat/${clone.id}`}
-                        className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-black"
-                      >
-                        Ouvrir
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-
-                      <Link
-                        href={`/create?cloneId=${clone.id}`}
-                        className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/75"
-                      >
-                        Modifier
-                      </Link>
-
-                      <Link
-                        href={`/chat/${clone.id}`}
-                        className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/75"
-                      >
-                        Tester
-                      </Link>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

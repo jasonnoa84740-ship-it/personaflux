@@ -368,6 +368,16 @@ async function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+async function readJsonSafe(res: Response) {
+  const raw = await res.text();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return { message: raw };
+  }
+}
+
 export default function CloneChatPage() {
   const params = useParams();
 
@@ -480,7 +490,7 @@ export default function CloneChatPage() {
         setLoadingClone(true);
 
         const res = await fetch(`/api/clones/${cloneId}`);
-        const data = await res.json();
+        const data = await readJsonSafe(res);
 
         if (!res.ok) {
           throw new Error(data?.error || "Impossible de charger le clone.");
@@ -492,12 +502,15 @@ export default function CloneChatPage() {
           id: clone.id,
           name: clone.name || "Clone",
           category: clone.category || "Clone",
-          description: clone.description || "Aucune description.",
+          description:
+            clone.description ||
+            clone.shortDescription ||
+            "Aucune description.",
           tone: clone.tone || "Premium",
           visibility: clone.visibility || "Privé",
-          objective: clone.objective || "Converser",
+          objective: clone.primaryGoal || "Converser",
           status: clone.status || "En ligne",
-          imageUrl: clone.imageUrl || null,
+          imageUrl: clone.avatarUrl || null,
           traits: clone.traits || [],
           tags: [
             clone.tone || "Premium",
@@ -578,7 +591,7 @@ export default function CloneChatPage() {
       body: formData,
     });
 
-    const data = await res.json();
+    const data = await readJsonSafe(res);
 
     if (!res.ok) {
       throw new Error(data?.error || "Upload image impossible.");
@@ -686,7 +699,7 @@ export default function CloneChatPage() {
         }),
       });
 
-      const data = await res.json();
+      const data = await readJsonSafe(res);
 
       if (!res.ok) {
         throw new Error(data?.error || "Impossible de générer une réponse.");
