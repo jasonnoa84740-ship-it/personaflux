@@ -406,13 +406,23 @@ async function readJsonSafe(res: Response): Promise<ApiResponse> {
 export default function CloneChatPage() {
   const params = useParams();
 
-  const rawCloneId =
+  const cloneId = useMemo(() => {
+  const fromParams =
     (params?.cloneId as string) ||
     (params?.id as string) ||
-    (params?.slug as string) ||
-    "";
+    (params?.slug as string);
 
-  const cloneId = String(rawCloneId);
+  if (fromParams && String(fromParams).trim()) {
+    return String(fromParams).trim();
+  }
+
+  if (typeof window !== "undefined") {
+    const parts = window.location.pathname.split("/").filter(Boolean);
+    return parts[parts.length - 1] || "";
+  }
+
+  return "";
+}, [params]);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
