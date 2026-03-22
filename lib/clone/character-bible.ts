@@ -1,23 +1,26 @@
-type CloneLike = {
-  name: string;
-  personalityText?: string | null;
-  voiceStyle?: string | null;
-  appearance?: {
-    energy?: string | null;
-    approxAgeRange?: string | null;
-    genderPresentation?: string | null;
-    hairColor?: string | null;
-    eyeColor?: string | null;
-    skinTone?: string | null;
-    fashionStyle?: string | null;
-  } | null;
+type VisualAppearanceInput = {
+  energy?: string | null;
+  approxAgeRange?: string | null;
+  genderPresentation?: string | null;
+  hairColor?: string | null;
+  eyeColor?: string | null;
+  skinTone?: string | null;
+  fashionStyle?: string | null;
+  referenceImageUrl?: string | null;
 };
 
-export function buildCharacterBible(clone: CloneLike) {
-  const appearance = clone.appearance ?? {};
+type CloneLike = {
+  name: string;
+  description?: string | null;
+  tone?: string | null;
+  appearance?: VisualAppearanceInput | null;
+};
+
+export function buildCharacterBible(params: CloneLike) {
+  const appearance = params.appearance ?? {};
 
   const summaryParts = [
-    clone.name,
+    params.name,
     appearance.genderPresentation,
     appearance.approxAgeRange,
     appearance.skinTone,
@@ -28,22 +31,28 @@ export function buildCharacterBible(clone: CloneLike) {
   ].filter(Boolean);
 
   const promptParts = [
-    "photorealistic realistic human character",
+    "photorealistic adult human character",
     appearance.genderPresentation,
     appearance.approxAgeRange,
     appearance.skinTone ? `${appearance.skinTone} skin tone` : undefined,
     appearance.hairColor ? `${appearance.hairColor} hair` : undefined,
     appearance.eyeColor ? `${appearance.eyeColor} eyes` : undefined,
-    appearance.fashionStyle ? `fashion style: ${appearance.fashionStyle}` : undefined,
-    appearance.energy ? `vibe: ${appearance.energy}` : undefined,
-    clone.personalityText ? `personality: ${clone.personalityText}` : undefined,
-    "same face identity, same proportions, realistic skin, natural lighting, commercial lifestyle photography",
+    appearance.fashionStyle
+      ? `fashion style: ${appearance.fashionStyle}`
+      : undefined,
+    appearance.energy ? `energy: ${appearance.energy}` : undefined,
+    params.tone ? `tone: ${params.tone}` : undefined,
+    params.description ? `personality: ${params.description}` : undefined,
+    appearance.referenceImageUrl
+      ? "use the reference image to preserve identity consistency"
+      : undefined,
+    "same face identity, realistic skin texture, natural lighting, commercial lifestyle photography, coherent visual identity across scenes",
   ].filter(Boolean);
 
   return {
     characterSummary: summaryParts.join(", "),
     canonicalVisualPrompt: promptParts.join(", "),
     negativePrompt:
-      "cartoon, anime, illustration, 3d render, bad anatomy, extra fingers, distorted face, different person, blurry face, uncanny skin",
+      "cartoon, anime, illustration, stylized, low quality, blurry face, distorted face, bad anatomy, extra fingers, inconsistent identity, different hair color",
   };
 }
