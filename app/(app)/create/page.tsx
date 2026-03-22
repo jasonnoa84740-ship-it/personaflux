@@ -123,7 +123,9 @@ function CreatePageContent() {
         setLoadingClone(true);
         setError("");
 
-        const res = await fetch(`/api/clones/${cloneId}`);
+        const res = await fetch(`/api/clones/${cloneId}`, {
+          cache: "no-store",
+        });
         const data = await readResponseOnce(res);
 
         if (!res.ok) {

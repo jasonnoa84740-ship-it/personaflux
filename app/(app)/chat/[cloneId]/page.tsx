@@ -513,7 +513,9 @@ export default function CloneChatPage() {
 
         setLoadingClone(true);
 
-        const res = await fetch(`/api/clones/${cloneId}`);
+        const res = await fetch(`/api/clones/${cloneId}`, {
+          cache: "no-store",
+        });
         const data = await readJsonSafe(res);
 
         if (!res.ok) {

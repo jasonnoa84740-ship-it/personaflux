@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function normalizeAvatar(clone: {
   avatarUrl?: string | null;
   visualAppearance?: { referenceImageUrl?: string | null } | null;
@@ -25,7 +28,12 @@ export async function GET(
     if (!cloneId) {
       return NextResponse.json(
         { error: "cloneId manquant" },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+          },
+        }
       );
     }
 
@@ -40,18 +48,30 @@ export async function GET(
     if (!clone) {
       return NextResponse.json(
         { error: "Clone introuvable." },
-        { status: 404 }
+        {
+          status: 404,
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+          },
+        }
       );
     }
 
     const avatarUrl = normalizeAvatar(clone);
 
-    return NextResponse.json({
-      clone: {
-        ...clone,
-        avatarUrl,
+    return NextResponse.json(
+      {
+        clone: {
+          ...clone,
+          avatarUrl,
+        },
       },
-    });
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        },
+      }
+    );
   } catch (error) {
     console.error("GET CLONE ERROR:", error);
 
@@ -60,7 +80,12 @@ export async function GET(
         error: "Erreur pendant le chargement du clone.",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        },
+      }
     );
   }
 }
@@ -147,9 +172,9 @@ export async function PATCH(
     const normalizedAvatarUrl =
       typeof avatarUrl === "string" && avatarUrl.trim()
         ? avatarUrl.trim()
-        : null;
+        : existingClone.avatarUrl || null;
 
-    const updatedClone = await prisma.clone.update({
+    await prisma.clone.update({
       where: { id: cloneId },
       data: {
         name:
@@ -193,8 +218,8 @@ export async function PATCH(
                 typeof appearance?.energy === "string" && appearance.energy.trim()
                   ? appearance.energy.trim()
                   : typeof tone === "string" && tone.trim()
-                    ? tone.trim()
-                    : null,
+                  ? tone.trim()
+                  : null,
               approxAgeRange:
                 typeof appearance?.approxAgeRange === "string" &&
                 appearance.approxAgeRange.trim()
@@ -225,8 +250,8 @@ export async function PATCH(
                 appearance.fashionStyle.trim()
                   ? appearance.fashionStyle.trim()
                   : typeof responseStyle === "string" && responseStyle.trim()
-                    ? responseStyle.trim()
-                    : null,
+                  ? responseStyle.trim()
+                  : null,
               referenceImageUrl:
                 typeof appearance?.referenceImageUrl === "string" &&
                 appearance.referenceImageUrl.trim()
@@ -238,8 +263,8 @@ export async function PATCH(
                 typeof appearance?.energy === "string" && appearance.energy.trim()
                   ? appearance.energy.trim()
                   : typeof tone === "string" && tone.trim()
-                    ? tone.trim()
-                    : null,
+                  ? tone.trim()
+                  : null,
               approxAgeRange:
                 typeof appearance?.approxAgeRange === "string" &&
                 appearance.approxAgeRange.trim()
@@ -270,8 +295,8 @@ export async function PATCH(
                 appearance.fashionStyle.trim()
                   ? appearance.fashionStyle.trim()
                   : typeof responseStyle === "string" && responseStyle.trim()
-                    ? responseStyle.trim()
-                    : null,
+                  ? responseStyle.trim()
+                  : null,
               referenceImageUrl:
                 typeof appearance?.referenceImageUrl === "string" &&
                 appearance.referenceImageUrl.trim()
@@ -281,37 +306,7 @@ export async function PATCH(
           },
         },
       },
-      include: {
-        visualAppearance: true,
-        mediaAssets: true,
-      },
     });
-
-    if (normalizedAvatarUrl) {
-      const existingAvatarAsset = updatedClone.mediaAssets?.find(
-        (asset) => asset.type === "AVATAR"
-      );
-
-      if (existingAvatarAsset) {
-        await prisma.cloneMediaAsset.update({
-          where: { id: existingAvatarAsset.id },
-          data: {
-            url: normalizedAvatarUrl,
-            altText: `${updatedClone.name} main avatar`,
-          },
-        });
-      } else {
-        await prisma.cloneMediaAsset.create({
-          data: {
-            cloneId: updatedClone.id,
-            type: "AVATAR",
-            url: normalizedAvatarUrl,
-            altText: `${updatedClone.name} main avatar`,
-            prompt: null,
-          },
-        });
-      }
-    }
 
     const refreshedClone = await prisma.clone.findUnique({
       where: { id: cloneId },
@@ -328,12 +323,53 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json({
-      clone: {
-        ...refreshedClone,
-        avatarUrl: normalizeAvatar(refreshedClone),
+    const existingAvatarAsset = refreshedClone.mediaAssets?.find(
+      (asset) => asset.type === "AVATAR"
+    );
+
+    if (normalizedAvatarUrl) {
+      if (existingAvatarAsset) {
+        await prisma.cloneMediaAsset.update({
+          where: { id: existingAvatarAsset.id },
+          data: {
+            url: normalizedAvatarUrl,
+            altText: `${refreshedClone.name} main avatar`,
+          },
+        });
+      } else {
+        await prisma.cloneMediaAsset.create({
+          data: {
+            cloneId: refreshedClone.id,
+            type: "AVATAR",
+            url: normalizedAvatarUrl,
+            altText: `${refreshedClone.name} main avatar`,
+            prompt: null,
+          },
+        });
+      }
+    }
+
+    const finalClone = await prisma.clone.findUnique({
+      where: { id: cloneId },
+      include: {
+        visualAppearance: true,
+        mediaAssets: true,
       },
     });
+
+    return NextResponse.json(
+      {
+        clone: {
+          ...finalClone,
+          avatarUrl: finalClone ? normalizeAvatar(finalClone) : null,
+        },
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        },
+      }
+    );
   } catch (error) {
     console.error("PATCH CLONE ERROR:", error);
 
