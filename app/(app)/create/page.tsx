@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRef, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@clerk/nextjs";
@@ -35,6 +35,20 @@ type ApiBody = {
   dataUrl?: string;
   url?: string;
   images?: Array<string | { url?: string; dataUrl?: string; image?: string }>;
+  clone?: {
+    id?: string;
+    name?: string;
+    category?: string | null;
+    shortDescription?: string | null;
+    description?: string | null;
+    avatarUrl?: string | null;
+    responseStyle?: string | null;
+    primaryGoal?: string | null;
+    tone?: string | null;
+    traits?: string[];
+    visibility?: string | null;
+    status?: string | null;
+  };
   [key: string]: unknown;
 };
 
@@ -78,8 +92,12 @@ function getGeneratedImageFromResponse(data: ApiBody): string | null {
 
 export default function CreatePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { userId } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const cloneId = searchParams.get("cloneId");
+  const isEditMode = Boolean(cloneId);
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Créateur");
@@ -90,11 +108,80 @@ export default function CreatePage() {
   const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
   const [loadingAction, setLoadingAction] = useState<"draft" | "publish" | null>(null);
   const [generatingAvatar, setGeneratingAvatar] = useState(false);
+  const [loadingClone, setLoadingClone] = useState(false);
   const [error, setError] = useState("");
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [generatedAvatarUrl, setGeneratedAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!cloneId) return;
+
+    async function loadClone() {
+      try {
+        setLoadingClone(true);
+        setError("");
+
+        const res = await fetch(`/api/clones/${cloneId}`);
+        const data = await readResponseOnce(res);
+
+        if (!res.ok) {
+          throw new Error(getApiError(data, "Impossible de charger le clone."));
+        }
+
+        const clone = data.clone;
+
+        if (!clone || typeof clone !== "object") {
+          throw new Error("Réponse clone invalide.");
+        }
+
+        setName(typeof clone.name === "string" ? clone.name : "");
+        setCategory(
+          typeof clone.category === "string" && clone.category.trim()
+            ? clone.category
+            : "Créateur"
+        );
+        setShortDescription(
+          typeof clone.shortDescription === "string" ? clone.shortDescription : ""
+        );
+        setDescription(
+          typeof clone.description === "string" ? clone.description : ""
+        );
+        setResponseStyle(
+          typeof clone.responseStyle === "string" && clone.responseStyle.trim()
+            ? clone.responseStyle
+            : "Élégant et premium"
+        );
+        setPrimaryGoal(
+          typeof clone.primaryGoal === "string" && clone.primaryGoal.trim()
+            ? clone.primaryGoal
+            : "Monétiser des conversations"
+        );
+        setSelectedTraits(Array.isArray(clone.traits) ? clone.traits : []);
+
+        const existingAvatar =
+          typeof clone.avatarUrl === "string" && clone.avatarUrl.trim()
+            ? clone.avatarUrl
+            : "";
+
+        setImagePreview(existingAvatar);
+        setGeneratedAvatarUrl(existingAvatar || null);
+        setImageFile(null);
+      } catch (err) {
+        console.error("[LOAD_CLONE_FOR_EDIT]", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Impossible de charger le clone."
+        );
+      } finally {
+        setLoadingClone(false);
+      }
+    }
+
+    loadClone();
+  }, [cloneId]);
 
   function toggleTrait(trait: string) {
     setSelectedTraits((prev) =>
@@ -257,8 +344,11 @@ export default function CreatePage() {
 
       const avatarUrl = await uploadAvatarIfNeeded();
 
-      const res = await fetch("/api/clones", {
-        method: "POST",
+      const endpoint = cloneId ? `/api/clones/${cloneId}` : "/api/clones";
+      const method = cloneId ? "PATCH" : "POST";
+
+      const res = await fetch(endpoint, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
@@ -322,7 +412,9 @@ export default function CreatePage() {
             </Link>
 
             <div>
-              <div className="text-sm font-semibold tracking-wide">Créer ton clone</div>
+              <div className="text-sm font-semibold tracking-wide">
+                {isEditMode ? "Modifier ton clone" : "Créer ton clone"}
+              </div>
               <div className="text-xs text-white/45">
                 Avatar, personnalité et positionnement
               </div>
@@ -347,13 +439,21 @@ export default function CreatePage() {
             </div>
 
             <h1 className="mt-5 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-              Donne une vraie identité à ton clone IA
+              {isEditMode
+                ? "Modifie ton clone IA"
+                : "Donne une vraie identité à ton clone IA"}
             </h1>
 
             <p className="mt-4 max-w-3xl text-base leading-8 text-white/60 sm:text-lg">
               Commence par générer ou importer un avatar fort, puis définis la
               personnalité, le style et l’objectif de ton clone.
             </p>
+
+            {loadingClone && (
+              <div className="mt-4 text-sm text-white/50">
+                Chargement du clone...
+              </div>
+            )}
           </div>
 
           <form className="space-y-8" onSubmit={handleSubmit}>
@@ -553,7 +653,7 @@ export default function CreatePage() {
                     </div>
 
                     <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/65">
-                      Brouillon
+                      {isEditMode ? "Édition" : "Brouillon"}
                     </div>
                   </div>
 
@@ -564,7 +664,7 @@ export default function CreatePage() {
                           src={imagePreview}
                           alt="Aperçu du clone"
                           fill
-                          className="object-cover"
+                          className="object-contain bg-black"
                           unoptimized
                         />
                       ) : (
@@ -640,7 +740,7 @@ export default function CreatePage() {
 
                       {generatedAvatarUrl && (
                         <div className="mt-3 text-xs text-emerald-300">
-                          Avatar IA généré avec succès.
+                          Avatar prêt.
                         </div>
                       )}
                     </div>
@@ -697,20 +797,28 @@ export default function CreatePage() {
                 <button
                   type="button"
                   onClick={() => saveClone("DRAFT")}
-                  disabled={loadingAction !== null}
+                  disabled={loadingAction !== null || loadingClone}
                   className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loadingAction === "draft"
                     ? "Sauvegarde..."
+                    : isEditMode
+                    ? "Mettre à jour en brouillon"
                     : "Sauvegarder en brouillon"}
                 </button>
 
                 <button
                   type="submit"
-                  disabled={loadingAction !== null}
+                  disabled={loadingAction !== null || loadingClone}
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-medium text-black transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loadingAction === "publish" ? "Création..." : "Créer le clone"}
+                  {loadingAction === "publish"
+                    ? isEditMode
+                      ? "Mise à jour..."
+                      : "Création..."
+                    : isEditMode
+                    ? "Mettre à jour le clone"
+                    : "Créer le clone"}
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
