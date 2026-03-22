@@ -75,8 +75,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const normalizedStatus =
-      status === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
+    const normalizedStatus = status === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
 
     const normalizedVisibility =
       visibility === "PUBLIC" ||
@@ -84,6 +83,9 @@ export async function POST(req: Request) {
       visibility === "PRIVATE"
         ? visibility
         : "PRIVATE";
+
+    const normalizedAvatarUrl =
+      typeof avatarUrl === "string" && avatarUrl.trim() ? avatarUrl.trim() : null;
 
     let user = await db.user.findUnique({
       where: { clerkUserId },
@@ -121,14 +123,9 @@ export async function POST(req: Request) {
           typeof description === "string" && description.trim()
             ? description.trim()
             : null,
-        avatarUrl:
-          typeof avatarUrl === "string" && avatarUrl.trim()
-            ? avatarUrl.trim()
-            : null,
-        responseStyle:
-          typeof responseStyle === "string" ? responseStyle : null,
-        primaryGoal:
-          typeof primaryGoal === "string" ? primaryGoal : null,
+        avatarUrl: normalizedAvatarUrl,
+        responseStyle: typeof responseStyle === "string" ? responseStyle : null,
+        primaryGoal: typeof primaryGoal === "string" ? primaryGoal : null,
         tone: typeof tone === "string" && tone.trim() ? tone.trim() : null,
         traits: Array.isArray(traits)
           ? traits.filter((item): item is string => typeof item === "string")
@@ -178,11 +175,22 @@ export async function POST(req: Request) {
               typeof appearance?.referenceImageUrl === "string" &&
               appearance.referenceImageUrl.trim()
                 ? appearance.referenceImageUrl.trim()
-                : typeof avatarUrl === "string" && avatarUrl.trim()
-                  ? avatarUrl.trim()
-                  : null,
+                : normalizedAvatarUrl,
           },
         },
+
+        mediaAssets: normalizedAvatarUrl
+          ? {
+              create: [
+                {
+                  type: "AVATAR",
+                  url: normalizedAvatarUrl,
+                  altText: `${name.trim()} main avatar`,
+                  prompt: null,
+                },
+              ],
+            }
+          : undefined,
       },
       include: {
         visualAppearance: true,
@@ -212,6 +220,7 @@ export async function POST(req: Request) {
           name: clone.name,
           slug: clone.slug,
           status: clone.status,
+          avatarUrl: clone.avatarUrl,
         },
       },
       { status: 201 }
