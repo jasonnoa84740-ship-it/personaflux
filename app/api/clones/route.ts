@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { buildCharacterBible } from "@/lib/clone/character-bible";
 
 function slugify(value: string) {
   return value
@@ -64,6 +65,7 @@ export async function POST(req: Request) {
       traits,
       visibility,
       status,
+      appearance,
     } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
@@ -133,16 +135,87 @@ export async function POST(req: Request) {
           : [],
         visibility: normalizedVisibility,
         status: normalizedStatus,
+
+        visualAppearance: {
+          create: {
+            energy:
+              typeof appearance?.energy === "string" && appearance.energy.trim()
+                ? appearance.energy.trim()
+                : typeof tone === "string" && tone.trim()
+                  ? tone.trim()
+                  : null,
+            approxAgeRange:
+              typeof appearance?.approxAgeRange === "string" &&
+              appearance.approxAgeRange.trim()
+                ? appearance.approxAgeRange.trim()
+                : null,
+            genderPresentation:
+              typeof appearance?.genderPresentation === "string" &&
+              appearance.genderPresentation.trim()
+                ? appearance.genderPresentation.trim()
+                : null,
+            hairColor:
+              typeof appearance?.hairColor === "string" &&
+              appearance.hairColor.trim()
+                ? appearance.hairColor.trim()
+                : null,
+            eyeColor:
+              typeof appearance?.eyeColor === "string" &&
+              appearance.eyeColor.trim()
+                ? appearance.eyeColor.trim()
+                : null,
+            skinTone:
+              typeof appearance?.skinTone === "string" &&
+              appearance.skinTone.trim()
+                ? appearance.skinTone.trim()
+                : null,
+            fashionStyle:
+              typeof appearance?.fashionStyle === "string" &&
+              appearance.fashionStyle.trim()
+                ? appearance.fashionStyle.trim()
+                : null,
+            referenceImageUrl:
+              typeof appearance?.referenceImageUrl === "string" &&
+              appearance.referenceImageUrl.trim()
+                ? appearance.referenceImageUrl.trim()
+                : typeof avatarUrl === "string" && avatarUrl.trim()
+                  ? avatarUrl.trim()
+                  : null,
+          },
+        },
       },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        status: true,
+      include: {
+        visualAppearance: true,
       },
     });
 
-    return NextResponse.json({ clone }, { status: 201 });
+    const bible = buildCharacterBible({
+      name: clone.name,
+      description: clone.description,
+      tone: clone.tone,
+      appearance: clone.visualAppearance,
+    });
+
+    await db.cloneCharacterBible.create({
+      data: {
+        cloneId: clone.id,
+        characterSummary: bible.characterSummary,
+        canonicalVisualPrompt: bible.canonicalVisualPrompt,
+        negativePrompt: bible.negativePrompt,
+      },
+    });
+
+    return NextResponse.json(
+      {
+        clone: {
+          id: clone.id,
+          name: clone.name,
+          slug: clone.slug,
+          status: clone.status,
+        },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("POST /api/clones error:", error);
 

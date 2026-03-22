@@ -82,7 +82,7 @@ model Clone {
   publishedAt            DateTime?
   archivedAt             DateTime?
 
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   config           CloneConfig?
   pricing          ClonePricing?
   analytics        CloneAnalytics?
@@ -95,6 +95,11 @@ model Clone {
   mediaAssets      CloneMediaAsset[]
   leadSubmissions  LeadSubmission[]
   memoryEntries    MemoryEntry[]
+
+  visualAppearance CloneVisualAppearance?
+  characterBible   CloneCharacterBible?
+  scenes           CloneScene[]
+  videoJobs        CloneVideoJob[]
 
   @@index([userId])
   @@index([slug])
@@ -347,6 +352,81 @@ model CloneMediaAsset {
   @@index([cloneId, type])
 }
 
+model CloneVisualAppearance {
+  id                 String   @id @default(cuid())
+  cloneId            String   @unique
+  energy             String?
+  approxAgeRange     String?
+  genderPresentation String?
+  hairColor          String?
+  eyeColor           String?
+  skinTone           String?
+  fashionStyle       String?
+  referenceImageUrl  String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  clone Clone @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+
+  @@index([cloneId])
+}
+
+model CloneCharacterBible {
+  id                    String   @id @default(cuid())
+  cloneId               String   @unique
+  version               Int      @default(1)
+  characterSummary      String
+  canonicalVisualPrompt String   @db.Text
+  negativePrompt        String?  @db.Text
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  clone Clone @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+
+  @@index([cloneId])
+}
+
+model CloneScene {
+  id                String      @id @default(cuid())
+  cloneId           String
+  title             String
+  templateKey       String
+  actionPrompt      String      @db.Text
+  environmentPrompt String?     @db.Text
+  cameraPrompt      String?     @db.Text
+  wardrobeOverride  String?
+  status            SceneStatus @default(DRAFT)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  clone     Clone           @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+  videoJobs CloneVideoJob[]
+
+  @@index([cloneId])
+  @@index([templateKey])
+  @@index([status])
+}
+
+model CloneVideoJob {
+  id            String         @id @default(cuid())
+  cloneId       String
+  sceneId       String?
+  provider      String
+  providerJobId String?
+  status        VideoJobStatus @default(PENDING)
+  prompt        String?        @db.Text
+  outputUrl     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  clone Clone      @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+  scene CloneScene? @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+
+  @@index([cloneId])
+  @@index([sceneId])
+  @@index([status])
+}
+
 model Subscription {
   id                String             @id @default(cuid())
   userId            String             @unique
@@ -523,4 +603,19 @@ enum NotificationType {
   USAGE
   SYSTEM
   MARKETING
+}
+
+enum SceneStatus {
+  DRAFT
+  READY
+  GENERATING
+  COMPLETED
+  FAILED
+}
+
+enum VideoJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
