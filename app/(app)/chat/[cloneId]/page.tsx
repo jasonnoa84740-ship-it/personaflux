@@ -53,6 +53,30 @@ type SpeechRecognitionType = {
   stop: () => void;
 };
 
+type ApiResponse = {
+  error?: string;
+  message?: string;
+  reply?: string;
+  mode?: MessageMode;
+  url?: string;
+  clone?: {
+    id?: string;
+    name?: string;
+    category?: string | null;
+    description?: string | null;
+    shortDescription?: string | null;
+    tone?: string | null;
+    visibility?: string | null;
+    primaryGoal?: string | null;
+    objective?: string | null;
+    status?: string | null;
+    avatarUrl?: string | null;
+    imageUrl?: string | null;
+    traits?: string[];
+  };
+  [key: string]: unknown;
+};
+
 declare global {
   interface Window {
     webkitSpeechRecognition?: new () => SpeechRecognitionType;
@@ -368,7 +392,7 @@ async function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-async function readJsonSafe(res: Response) {
+async function readJsonSafe(res: Response): Promise<ApiResponse> {
   const raw = await res.text();
   if (!raw) return {};
   try {
@@ -498,24 +522,32 @@ export default function CloneChatPage() {
 
         const clone = data.clone;
 
+        const cloneDescription =
+          (typeof clone?.description === "string" && clone.description.trim()) ||
+          (typeof clone?.shortDescription === "string" &&
+            clone.shortDescription.trim()) ||
+          "Aucune description.";
+
+        const cloneAvatar =
+          (typeof clone?.avatarUrl === "string" && clone.avatarUrl.trim()) ||
+          (typeof clone?.imageUrl === "string" && clone.imageUrl.trim()) ||
+          null;
+
         setCloneData({
-          id: clone.id,
-          name: clone.name || "Clone",
-          category: clone.category || "Clone",
-          description:
-            clone.description ||
-            clone.shortDescription ||
-            "Aucune description.",
-          tone: clone.tone || "Premium",
-          visibility: clone.visibility || "Privé",
-          objective: clone.primaryGoal || "Converser",
-          status: clone.status || "En ligne",
-          imageUrl: clone.avatarUrl || null,
-          traits: clone.traits || [],
+          id: clone?.id || "",
+          name: clone?.name || "Clone",
+          category: clone?.category || "Clone",
+          description: cloneDescription,
+          tone: clone?.tone || "Premium",
+          visibility: clone?.visibility || "Privé",
+          objective: clone?.primaryGoal || clone?.objective || "Converser",
+          status: clone?.status || "En ligne",
+          imageUrl: cloneAvatar,
+          traits: Array.isArray(clone?.traits) ? clone.traits : [],
           tags: [
-            clone.tone || "Premium",
-            clone.visibility || "Privé",
-            clone.category || "Clone",
+            clone?.tone || "Premium",
+            clone?.visibility || "Privé",
+            clone?.category || "Clone",
           ],
         });
       } catch (error) {
