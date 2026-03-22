@@ -273,42 +273,9 @@ function CreatePageContent() {
     }
   }
 
-  async function uploadAvatarIfNeeded() {
-    if (generatedAvatarUrl?.startsWith("data:image/")) {
-      const res = await fetch("/api/clone-avatar-from-dataurl", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          dataUrl: generatedAvatarUrl,
-          cloneName: name.trim() || "clone-avatar",
-        }),
-      });
-
-      const data = await readResponseOnce(res);
-
-      if (!res.ok) {
-        throw new Error(
-          getApiError(data, "Impossible d’uploader l’avatar IA.")
-        );
-      }
-
-      if (typeof data.url !== "string" || !data.url.trim()) {
-        throw new Error("L’upload de l’avatar IA n’a pas renvoyé d’URL valide.");
-      }
-
-      return data.url;
-    }
-
-    if (generatedAvatarUrl && !generatedAvatarUrl.startsWith("data:image/")) {
-      return generatedAvatarUrl;
-    }
-
-    if (!imageFile) return null;
-
+  async function uploadFileAvatar(file: File) {
     const formData = new FormData();
-    formData.append("file", imageFile);
+    formData.append("file", file);
 
     const res = await fetch("/api/clone-avatar", {
       method: "POST",
@@ -328,6 +295,75 @@ function CreatePageContent() {
     return data.url;
   }
 
+  async function uploadDataUrlAvatar(dataUrl: string) {
+    const res = await fetch("/api/clone-avatar-from-dataurl", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        dataUrl,
+        cloneName: name.trim() || "clone-avatar",
+      }),
+    });
+
+    const data = await readResponseOnce(res);
+
+    if (!res.ok) {
+      throw new Error(
+        getApiError(data, "Impossible d’uploader l’avatar IA.")
+      );
+    }
+
+    if (typeof data.url !== "string" || !data.url.trim()) {
+      throw new Error("L’upload de l’avatar IA n’a pas renvoyé d’URL valide.");
+    }
+
+    return data.url;
+  }
+
+  async function resolvePublicAvatarUrl() {
+    if (imageFile) {
+      return await uploadFileAvatar(imageFile);
+    }
+
+    if (generatedAvatarUrl?.startsWith("data:image/")) {
+      return await uploadDataUrlAvatar(generatedAvatarUrl);
+    }
+
+    if (
+      generatedAvatarUrl &&
+      !generatedAvatarUrl.startsWith("data:image/") &&
+      !generatedAvatarUrl.startsWith("blob:")
+    ) {
+      return generatedAvatarUrl;
+    }
+
+    return null;
+  }
+
+  async function ensureMainAvatar(cloneIdToUse: string, publicAvatarUrl: string | null) {
+    if (!cloneIdToUse || !publicAvatarUrl) return;
+
+    const res = await fetch(`/api/clones/${cloneIdToUse}/select-main-image`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        imageUrl: publicAvatarUrl,
+      }),
+    });
+
+    const data = await readResponseOnce(res);
+
+    if (!res.ok) {
+      throw new Error(
+        getApiError(data, "Impossible de définir l’avatar principal.")
+      );
+    }
+  }
+
   async function saveClone(status: "DRAFT" | "PUBLISHED") {
     setError("");
 
@@ -344,54 +380,7 @@ function CreatePageContent() {
     try {
       setLoadingAction(status === "DRAFT" ? "draft" : "publish");
 
-      let finalAvatarUrl = generatedAvatarUrl;
-
-      if (generatedAvatarUrl?.startsWith("data:image/")) {
-        const res = await fetch("/api/clone-avatar-from-dataurl", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            dataUrl: generatedAvatarUrl,
-            cloneName: name.trim(),
-          }),
-        });
-
-        const data = await readResponseOnce(res);
-
-        if (!res.ok) {
-          throw new Error(getApiError(data, "Upload avatar échoué."));
-        }
-
-        if (typeof data.url !== "string" || !data.url.trim()) {
-          throw new Error("Aucune URL valide renvoyée pour l’avatar.");
-        }
-
-        finalAvatarUrl = data.url;
-      }
-
-      if (!finalAvatarUrl && imageFile) {
-        const formData = new FormData();
-        formData.append("file", imageFile);
-
-        const res = await fetch("/api/clone-avatar", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await readResponseOnce(res);
-
-        if (!res.ok) {
-          throw new Error(getApiError(data, "Upload image échoué."));
-        }
-
-        if (typeof data.url !== "string" || !data.url.trim()) {
-          throw new Error("Aucune URL valide renvoyée pour l’image.");
-        }
-
-        finalAvatarUrl = data.url;
-      }
+      const finalAvatarUrl = await resolvePublicAvatarUrl();
 
       const endpoint = cloneId ? `/api/clones/${cloneId}` : "/api/clones";
       const method = cloneId ? "PATCH" : "POST";
@@ -425,6 +414,13 @@ function CreatePageContent() {
 
       if (!res.ok) {
         throw new Error(getApiError(data, "Impossible d’enregistrer le clone."));
+      }
+
+      const savedCloneId =
+        (typeof data.clone?.id === "string" && data.clone.id) || cloneId || "";
+
+      if (savedCloneId && finalAvatarUrl) {
+        await ensureMainAvatar(savedCloneId, finalAvatarUrl);
       }
 
       router.push("/dashboard");
